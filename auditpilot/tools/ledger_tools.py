@@ -159,6 +159,17 @@ def check_trial_balance(
     ledger = pd.read_csv(l_path)
     tb = pd.read_csv(t_path)
 
+    # Validate required columns
+    required_cols = ["entry_id", "account_code", "debit_inr", "credit_inr", "amount_inr"]
+    missing = [c for c in required_cols if c not in ledger.columns]
+    if missing:
+        return {
+            "test": "check_trial_balance",
+            "flagged_ids": [],
+            "stats": {"ledger_exists": True, "missing_columns": missing},
+            "notes": f"Ledger file is missing required columns for reconciliation: {missing}",
+        }
+
     # Compute ledger debits and credits by account
     ledger_debits = (
         ledger.groupby("account_code")["debit_inr"].sum().to_dict()
