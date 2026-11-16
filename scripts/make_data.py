@@ -375,14 +375,16 @@ def generate_dataset():
     transactions = [] # List of transaction dictionaries
     ground_truth = [] # List of {"entry_id": ..., "anomaly_type": ...}
 
-    # Helper to select approver based on policy
+    emp_limits = dict(zip(employees_df["employee_id"], employees_df["approval_limit_inr"]))
+
+    # Helper to select approver based on policy: approver must have limit >= amount
     def get_valid_approver(amount, poster_id):
-        if amount <= 50000:
-            candidates = [e for e in (tier1_managers + tier2_managers + [cfo_id]) if e != poster_id]
-        elif amount <= 1000000:
-            candidates = [e for e in (tier2_managers + [cfo_id]) if e != poster_id]
-        else:
-            candidates = [cfo_id] if poster_id != cfo_id else ["EMP-02"]
+        candidates = [
+            e for e in employees_df["employee_id"]
+            if e != poster_id and emp_limits[e] >= amount
+        ]
+        if not candidates:
+            return cfo_id
         return rng.choice(candidates)
 
     # -------------------------------------------------------------
