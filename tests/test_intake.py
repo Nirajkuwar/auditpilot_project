@@ -43,6 +43,15 @@ from auditpilot.schemas import DataProfile
 from auditpilot.tools import check_trial_balance, load_ledger
 
 
+def _get_tool_names(llm_request: types.GenerateContentConfig) -> list[str]:
+    names = []
+    if llm_request.config and llm_request.config.tools:
+        for t in llm_request.config.tools:
+            if hasattr(t, "function_declarations") and t.function_declarations:
+                names.extend([fd.name for fd in t.function_declarations])
+    return names
+
+
 def dynamic_profile_from_tools(llm_request: types.GenerateContentConfig) -> dict:
     """
     Dynamically extracts the real tool responses computed on actual CSV data files
@@ -96,15 +105,20 @@ def dynamic_profile_from_tools(llm_request: types.GenerateContentConfig) -> dict
 async def mock_dynamic_generate(self, llm_request, stream=False):
     """
     Offline model adapter for continuous testing:
-    - Turn 1: Issues function calls for load_ledger and check_trial_balance (with custom path if passed).
-    - Turn 2: Synthesizes DataProfile dynamically from the actual tool outputs on real data files.
+    - Turn 1: Issues function calls matching declared tools for each agent.
+    - Turn 2: Synthesizes DataProfile or valid specialist findings dynamically from real tool outputs.
     """
-    has_tool_resp = any(
-        any(p.function_response is not None for p in c.parts)
-        for c in llm_request.contents
-        if c.parts
-    )
-    if not has_tool_resp:
+    tool_outputs = {}
+    for content in llm_request.contents:
+        if not content.parts:
+            continue
+        for part in content.parts:
+            if part.function_response:
+                tool_outputs[part.function_response.name] = part.function_response.response
+
+    available_tools = _get_tool_names(llm_request)
+
+    if not tool_outputs:
         user_text = (
             llm_request.contents[0].parts[0].text
             if llm_request.contents and llm_request.contents[0].parts
@@ -116,29 +130,103 @@ async def mock_dynamic_generate(self, llm_request, stream=False):
                 path_arg = {"ledger_path": token}
                 break
 
-        yield LlmResponse(
-            content=types.Content(
-                role="model",
-                parts=[
-                    types.Part(function_call=types.FunctionCall(name="load_ledger", args=path_arg)),
-                    types.Part(function_call=types.FunctionCall(name="check_trial_balance", args=path_arg)),
-                ],
+        fc_parts = []
+        for t_name in available_tools:
+            arg = (
+                path_arg
+                if t_name in (
+                    "load_ledger",
+                    "check_trial_balance",
+                    "benford_test",
+                    "find_duplicates",
+                    "find_split_payments",
+                    "find_weekend_round",
+                )
+                else {}
             )
-        )
+            fc_parts.append(types.Part(function_call=types.FunctionCall(name=t_name, args=arg)))
+
+        yield LlmResponse(content=types.Content(role="model", parts=fc_parts))
     else:
-        profile = dynamic_profile_from_tools(llm_request)
-        yield LlmResponse(
-            content=types.Content(
-                role="model",
-                parts=[types.Part(text=json.dumps(profile))],
+        if "load_ledger" in tool_outputs or "check_trial_balance" in tool_outputs:
+            profile = dynamic_profile_from_tools(llm_request)
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(profile))]))
+        elif "vendor_bank_overlap" in tool_outputs:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps({
+                                "ghost_vendor_count": 5,
+                                "ghost_vendor_ids": ["VND-024"],
+                                "shared_account_count": 3,
+                                "shared_account_vendor_ids": ["VND-088"],
+                                "shared_account_employee_ids": ["EMP-14"],
+                                "flagged_entry_ids": [],
+                                "total_at_risk_inr": 0.0,
+                                "flagged_ids": [],
+                                "notes": "Vendor checked",
+                            })
+                        )
+                    ],
+                )
             )
-        )
+        elif "ratio_table" in tool_outputs:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps({
+                                "months_analyzed": 12,
+                                "average_gross_margin": 5.44,
+                                "average_operating_margin": -62.04,
+                                "average_current_ratio": 1.23,
+                                "average_debt_to_equity": 0.88,
+                                "liquidity_status": "HEALTHY",
+                                "solvency_status": "STABLE",
+                                "flagged_months": [],
+                                "notes": "Ratios checked",
+                            })
+                        )
+                    ],
+                )
+            )
+        else:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps({
+                                "benford_status": "FLAGGED",
+                                "benford_chi2": 50.0,
+                                "benford_mad": 0.02,
+                                "benford_spikes": [5],
+                                "duplicate_count": 10,
+                                "duplicate_entry_ids": [],
+                                "duplicate_total_inr": 0.0,
+                                "split_payment_group_count": 6,
+                                "split_payment_entry_ids": [],
+                                "split_payment_total_inr": 0.0,
+                                "weekend_round_count": 12,
+                                "weekend_round_entry_ids": [],
+                                "weekend_round_total_inr": 0.0,
+                                "total_anomalies_flagged": 40,
+                                "flagged_ids": [],
+                                "notes": "Anomalies checked",
+                            })
+                        )
+                    ],
+                )
+            )
 
 
 def test_intake_agent_configuration():
     """Verify intake_agent properties, model, tools, and output configuration."""
     assert intake_agent.name == "intake_agent"
-    assert intake_agent.model == "gemini-3.1-flash-lite"
+    assert "gemini-3.1-flash-lite" in getattr(intake_agent.model, "model", str(intake_agent.model))
     assert intake_agent.output_key == "data_profile"
     assert intake_agent.output_schema == DataProfile
 

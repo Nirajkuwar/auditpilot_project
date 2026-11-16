@@ -1,15 +1,29 @@
 """
-Root audit lead agent and sequential execution pipeline for AuditPilot.
+Root audit lead agent and sequential/parallel execution pipeline for AuditPilot.
 """
 
-from google.adk.agents import SequentialAgent
+from google.adk.agents import ParallelAgent, SequentialAgent
+from auditpilot.agents.anomaly import anomaly_agent
 from auditpilot.agents.intake import intake_agent
+from auditpilot.agents.ratio import ratio_agent
+from auditpilot.agents.vendor import vendor_agent
+from auditpilot.callbacks import pipeline_guard
 
-# Lead audit pipeline orchestrating sequential multi-agent execution
+# Parallel specialist group analyzing anomalies, vendor integrity, and ratios concurrently
+specialists = ParallelAgent(
+    name="specialists",
+    description="Parallel specialist team analyzing pattern anomalies, vendor integrity, and financial ratios.",
+    sub_agents=[anomaly_agent, vendor_agent, ratio_agent],
+    before_agent_callback=pipeline_guard,
+)
+
+# Lead audit pipeline orchestrating sequential multi-agent execution:
+# 1. intake_agent (validates dataset structure, halted by pipeline_guard if FAILED)
+# 2. specialists (executes anomaly_agent, vendor_agent, and ratio_agent in parallel)
 audit_lead = SequentialAgent(
     name="audit_lead",
     description="Lead Audit Pipeline Agent for Sahyadri Precision Components Pvt. Ltd.",
-    sub_agents=[intake_agent],
+    sub_agents=[intake_agent, specialists],
 )
 
 # Root agent entry point for ADK Web UI and CLI runners

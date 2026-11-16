@@ -4,10 +4,11 @@ Intake Agent for AuditPilot: verifies schemas, balances, and reconciles trial ba
 
 import os
 from google.adk.agents.llm_agent import LlmAgent
+from auditpilot.models import get_gemini_model
 from auditpilot.schemas import DataProfile
 from auditpilot.tools import check_trial_balance, load_ledger
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+DEFAULT_MODEL = get_gemini_model()
 
 INTAKE_INSTRUCTION = """You are the specialized Financial Data Intake Agent for Sahyadri Precision Components Pvt. Ltd.
 Your primary responsibility is to inspect, validate, and profile accounting dataset files before any substantive audit procedures are executed.

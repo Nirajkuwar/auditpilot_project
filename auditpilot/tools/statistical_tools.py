@@ -100,7 +100,7 @@ def benford_test(
             "expected_pct": round(float(exp_prob * 100), 2),
             "diff_pct": round(float(diff_prob * 100), 2),
             "standardized_residual": round(float(std_res), 2),
-            "is_anomaly": abs(std_res) >= residual_threshold,
+            "is_anomaly": bool(abs(std_res) >= residual_threshold),
         }
 
     mad = round(float(mad_sum / 9.0), 4)

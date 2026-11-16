@@ -7,6 +7,7 @@ Validates:
 3. Recall >= 90% against data/ground_truth.csv across all seeded anomaly categories.
 """
 
+import json
 from pathlib import Path
 from typing import Any
 import pandas as pd
@@ -61,6 +62,10 @@ def test_all_tools_uniform_return_schema():
         assert isinstance(res["flagged_ids"], list), f"'flagged_ids' must be list in {res.get('test')}"
         assert isinstance(res["stats"], dict), f"'stats' must be dict in {res.get('test')}"
         assert isinstance(res["notes"], str), f"'notes' must be str in {res.get('test')}"
+
+        # Ensure return is 100% JSON serializable for Pydantic / SQLite session store
+        json_str = json.dumps(res)
+        assert json_str is not None
         assert len(res["notes"]) > 0, f"'notes' must be non-empty in {res.get('test')}"
 
 
