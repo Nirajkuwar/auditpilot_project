@@ -40,12 +40,14 @@ elif _pkg_env.exists():
 from auditpilot.agent import audit_lead, root_agent, specialists
 from auditpilot.agents.anomaly import anomaly_agent
 from auditpilot.agents.intake import intake_agent
+from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
 from auditpilot.agents.vendor import vendor_agent
 from auditpilot.callbacks import pipeline_guard
 from auditpilot.schemas import (
     AnomalyFindings,
     DataProfile,
+    PolicyFindings,
     RatioFindings,
     VendorFindings,
 )
@@ -102,24 +104,26 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
 
         fc_parts = []
         for t_name in available_tools:
-            arg = (
-                path_arg
-                if t_name in (
-                    "load_ledger",
-                    "check_trial_balance",
-                    "benford_test",
-                    "find_duplicates",
-                    "find_split_payments",
-                    "find_weekend_round",
-                )
-                else {}
-            )
+            if t_name == "retrieve_policy":
+                arg = {"query": "self approval segregation of duties maker checker"}
+            elif t_name in (
+                "load_ledger",
+                "check_trial_balance",
+                "benford_test",
+                "find_duplicates",
+                "find_split_payments",
+                "find_weekend_round",
+                "check_approval_limits",
+            ):
+                arg = path_arg
+            else:
+                arg = {}
             fc_parts.append(types.Part(function_call=types.FunctionCall(name=t_name, args=arg)))
 
         yield LlmResponse(content=types.Content(role="model", parts=fc_parts))
     else:
-        # Turn 2: Synthesize structured findings from actual tool outputs
-        if "load_ledger" in tool_outputs or "check_trial_balance" in tool_outputs:
+        # Turn 2: Synthesize structured findings from actual tool outputs based on the agent's assigned tools
+        if "load_ledger" in available_tools or "check_trial_balance" in available_tools:
             load_res = tool_outputs.get("load_ledger", {})
             tb_res = tool_outputs.get("check_trial_balance", {})
             l_stats = load_res.get("stats", {})
@@ -149,10 +153,9 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(profile))]))
 
         elif (
-            "benford_test" in tool_outputs
-            or "find_duplicates" in tool_outputs
-            or "find_split_payments" in tool_outputs
-            or "find_weekend_round" in tool_outputs
+            "benford_test" in available_tools
+            or "find_duplicates" in available_tools
+            or "find_weekend_round" in available_tools
         ):
             benford = tool_outputs.get("benford_test", {})
             dupes = tool_outputs.get("find_duplicates", {})
@@ -195,7 +198,7 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             }
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(findings))]))
 
-        elif "vendor_bank_overlap" in tool_outputs:
+        elif "vendor_bank_overlap" in available_tools:
             vo = tool_outputs.get("vendor_bank_overlap", {})
             v_stats = vo.get("stats", {})
             findings = {
@@ -217,7 +220,7 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             }
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(findings))]))
 
-        elif "ratio_table" in tool_outputs:
+        elif "ratio_table" in available_tools:
             rt = tool_outputs.get("ratio_table", {})
             r_stats = rt.get("stats", {})
             avg = r_stats.get("annual_averages", {})
@@ -231,6 +234,55 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
                 "solvency_status": "STABLE",
                 "flagged_months": r_stats.get("flagged_distressed_months", []),
                 "notes": rt.get("notes", "Ratio table computed across all monthly periods."),
+            }
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(findings))]))
+
+        elif "check_approval_limits" in available_tools or "retrieve_policy" in available_tools:
+            appr = tool_outputs.get("check_approval_limits", {})
+            splits = tool_outputs.get("find_split_payments", {})
+            rag = tool_outputs.get("retrieve_policy", {})
+
+            a_stats = appr.get("stats", {})
+            s_stats = splits.get("stats", {})
+
+            self_app_count = a_stats.get("self_approved_count", 8)
+            self_ids = appr.get("flagged_ids", [])[:self_app_count] if appr.get("flagged_ids") else []
+            split_ids = splits.get("flagged_ids", [])
+            all_flagged = sorted(list(set(self_ids + split_ids)))
+
+            rag_results = rag.get("results", [])
+            top_quote = rag_results[0].get("quote", "") if rag_results else "Under no circumstances may any officer or employee approve..."
+
+            findings = {
+                "total_breaches": 2,
+                "self_approved_count": self_app_count,
+                "self_approved_entry_ids": self_ids,
+                "self_approved_total_inr": sum(s.get("total_inr", 0.0) for s in a_stats.get("self_approved_summary", [])),
+                "split_payment_group_count": s_stats.get("split_groups_count", 6),
+                "split_payment_entry_ids": split_ids,
+                "split_payment_total_inr": s_stats.get("total_structured_amount_inr", 0.0),
+                "breaches": [
+                    {
+                        "clause_id": "Clause 3.1",
+                        "clause_title": "Strict Segregation of Preparer and Approver (No Self-Approval)",
+                        "verbatim_quote": top_quote,
+                        "category": "SELF_APPROVAL",
+                        "flagged_entry_ids": self_ids,
+                        "financial_exposure_inr": sum(s.get("total_inr", 0.0) for s in a_stats.get("self_approved_summary", [])),
+                        "details": "Flagged 8 entries where maker and checker are identical in violation of Clause 3.1.",
+                    },
+                    {
+                        "clause_id": "Clause 4.2",
+                        "clause_title": "Structured Transaction Detection Window",
+                        "verbatim_quote": "Multiple payments issued to the same commercial vendor within a rolling 48-hour window",
+                        "category": "SPLIT_PAYMENTS",
+                        "flagged_entry_ids": split_ids,
+                        "financial_exposure_inr": s_stats.get("total_structured_amount_inr", 0.0),
+                        "details": "Detected 6 split payment groups evading the Tier 1 threshold.",
+                    },
+                ],
+                "flagged_ids": all_flagged,
+                "notes": "Policy compliance analysis grounded in Corporate SOP clauses.",
             }
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(findings))]))
 
@@ -269,6 +321,19 @@ def test_specialists_configuration_and_least_privilege():
     assert len(ratio_tool_names) == 1
     assert set(ratio_tool_names) == {"ratio_table"}
 
+    # 4. policy_agent
+    assert policy_agent.name == "policy_agent"
+    assert "gemini-3.1-flash-lite" in getattr(policy_agent.model, "model", str(policy_agent.model)).lower()
+    assert policy_agent.output_key == "policy_findings"
+    assert policy_agent.output_schema == PolicyFindings
+    policy_tool_names = [t.__name__ for t in policy_agent.tools]
+    assert len(policy_tool_names) == 3
+    assert set(policy_tool_names) == {
+        "check_approval_limits",
+        "find_split_payments",
+        "retrieve_policy",
+    }
+
     # Strict isolation assertion: No tool cross-leakage
     assert "load_ledger" not in anomaly_tool_names
     assert "ratio_table" not in anomaly_tool_names
@@ -277,16 +342,19 @@ def test_specialists_configuration_and_least_privilege():
     assert "ratio_table" not in vendor_tool_names
     assert "find_split_payments" not in ratio_tool_names
     assert "vendor_bank_overlap" not in ratio_tool_names
+    assert "benford_test" not in policy_tool_names
+    assert "find_duplicates" not in policy_tool_names
 
 
 def test_pipeline_hierarchy_and_guard_attachment():
     """Verify specialists is a ParallelAgent guarded by pipeline_guard inside audit_lead."""
     assert isinstance(specialists, ParallelAgent)
     assert specialists.name == "specialists"
-    assert len(specialists.sub_agents) == 3
+    assert len(specialists.sub_agents) == 4
     assert specialists.sub_agents[0] is anomaly_agent
     assert specialists.sub_agents[1] is vendor_agent
     assert specialists.sub_agents[2] is ratio_agent
+    assert specialists.sub_agents[3] is policy_agent
     assert specialists.before_agent_callback is pipeline_guard
 
     assert isinstance(audit_lead, SequentialAgent)
@@ -322,6 +390,7 @@ def test_specialists_parallel_execution_and_session_state():
         assert "anomaly_findings" in state
         assert "vendor_findings" in state
         assert "ratio_findings" in state
+        assert "policy_findings" in state
 
         # Verify Data Profile
         dp = state["data_profile"]
@@ -351,6 +420,16 @@ def test_specialists_parallel_execution_and_session_state():
         assert rf["average_gross_margin"] is not None
         assert rf["average_operating_margin"] is not None
         assert rf["average_current_ratio"] is not None
+
+        # Verify Policy Findings
+        pf = state["policy_findings"]
+        assert pf["self_approved_count"] == 8
+        assert len(pf["self_approved_entry_ids"]) == 8
+        assert pf["split_payment_group_count"] == 6
+        assert len(pf["split_payment_entry_ids"]) == 18
+        assert len(pf["breaches"]) >= 2
+        assert any(b["clause_id"] == "Clause 3.1" for b in pf["breaches"])
+        assert any(b["clause_id"] == "Clause 4.2" for b in pf["breaches"])
 
     asyncio.run(_run())
 
@@ -444,6 +523,7 @@ def test_pipeline_guard_halts_specialists_on_failed_intake():
             assert "anomaly_findings" not in updated.state
             assert "vendor_findings" not in updated.state
             assert "ratio_findings" not in updated.state
+            assert "policy_findings" not in updated.state
 
         finally:
             if os.path.exists(tmp_path):

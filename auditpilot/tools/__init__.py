@@ -10,6 +10,7 @@ from auditpilot.tools.pattern_tools import (
     find_split_payments,
     find_weekend_round,
 )
+from auditpilot.tools.policy_rag import retrieve_policy
 from auditpilot.tools.statistical_tools import benford_test
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "check_approval_limits",
     "vendor_bank_overlap",
     "ratio_table",
+    "retrieve_policy",
 ]

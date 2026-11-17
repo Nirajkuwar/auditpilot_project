@@ -132,26 +132,28 @@ async def mock_dynamic_generate(self, llm_request, stream=False):
 
         fc_parts = []
         for t_name in available_tools:
-            arg = (
-                path_arg
-                if t_name in (
-                    "load_ledger",
-                    "check_trial_balance",
-                    "benford_test",
-                    "find_duplicates",
-                    "find_split_payments",
-                    "find_weekend_round",
-                )
-                else {}
-            )
+            if t_name == "retrieve_policy":
+                arg = {"query": "segregation of duties maker checker self approval"}
+            elif t_name in (
+                "load_ledger",
+                "check_trial_balance",
+                "benford_test",
+                "find_duplicates",
+                "find_split_payments",
+                "find_weekend_round",
+                "check_approval_limits",
+            ):
+                arg = path_arg
+            else:
+                arg = {}
             fc_parts.append(types.Part(function_call=types.FunctionCall(name=t_name, args=arg)))
 
         yield LlmResponse(content=types.Content(role="model", parts=fc_parts))
     else:
-        if "load_ledger" in tool_outputs or "check_trial_balance" in tool_outputs:
+        if "load_ledger" in available_tools or "check_trial_balance" in available_tools:
             profile = dynamic_profile_from_tools(llm_request)
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(profile))]))
-        elif "vendor_bank_overlap" in tool_outputs:
+        elif "vendor_bank_overlap" in available_tools:
             yield LlmResponse(
                 content=types.Content(
                     role="model",
@@ -172,7 +174,7 @@ async def mock_dynamic_generate(self, llm_request, stream=False):
                     ],
                 )
             )
-        elif "ratio_table" in tool_outputs:
+        elif "ratio_table" in available_tools:
             yield LlmResponse(
                 content=types.Content(
                     role="model",
@@ -188,6 +190,38 @@ async def mock_dynamic_generate(self, llm_request, stream=False):
                                 "solvency_status": "STABLE",
                                 "flagged_months": [],
                                 "notes": "Ratios checked",
+                            })
+                        )
+                    ],
+                )
+            )
+        elif "retrieve_policy" in available_tools or "check_approval_limits" in available_tools:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps({
+                                "total_breaches": 2,
+                                "self_approved_count": 8,
+                                "self_approved_entry_ids": [],
+                                "self_approved_total_inr": 312000.0,
+                                "split_payment_group_count": 6,
+                                "split_payment_entry_ids": [],
+                                "split_payment_total_inr": 866600.0,
+                                "breaches": [
+                                    {
+                                        "clause_id": "Clause 3.1",
+                                        "clause_title": "Strict Segregation of Preparer and Approver (No Self-Approval)",
+                                        "verbatim_quote": "Under no circumstances may any officer or employee approve...",
+                                        "category": "SELF_APPROVAL",
+                                        "flagged_entry_ids": [],
+                                        "financial_exposure_inr": 312000.0,
+                                        "details": "Self-approved transactions flagged.",
+                                    }
+                                ],
+                                "flagged_ids": [],
+                                "notes": "Policy checked",
                             })
                         )
                     ],
