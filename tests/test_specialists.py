@@ -115,9 +115,16 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             elif t_name == "exit_review":
                 arg = {"reason": "All findings confirmed."}
             elif t_name == "write_audit_memo":
-                arg = {"markdown_content": "# AUDIT MEMORANDUM\nStatus: DRAFT", "status": "DRAFT"}
+                arg = {
+                    "markdown_content": "# AUDIT MEMORANDUM\nStatus: DRAFT",
+                    "status": "DRAFT",
+                    "output_path": os.path.join(tempfile.gettempdir(), "test_specialists_memo.md"),
+                }
             elif t_name == "sign_off_memo":
-                arg = {"decision": "APPROVE"}
+                arg = {
+                    "decision": "APPROVE",
+                    "memo_path": os.path.join(tempfile.gettempdir(), "test_specialists_memo.md"),
+                }
             elif t_name == "score_and_rank_findings":
                 arg = {
                     "findings": [
@@ -394,7 +401,7 @@ def test_specialists_configuration_and_least_privilege():
     """Verify strict least privilege, model configuration, and output schemas for all specialists."""
     # 1. anomaly_agent
     assert anomaly_agent.name == "anomaly_agent"
-    assert "gemini-3.1-flash-lite" in getattr(anomaly_agent.model, "model", str(anomaly_agent.model)).lower()
+    assert "gemini-3.8-flash" in getattr(anomaly_agent.model, "model", str(anomaly_agent.model)).lower()
     assert anomaly_agent.output_key == "anomaly_findings"
     assert anomaly_agent.output_schema == AnomalyFindings
     anomaly_tool_names = [t.__name__ for t in anomaly_agent.tools]
@@ -408,7 +415,7 @@ def test_specialists_configuration_and_least_privilege():
 
     # 2. vendor_agent
     assert vendor_agent.name == "vendor_agent"
-    assert "gemini-3.1-flash-lite" in getattr(vendor_agent.model, "model", str(vendor_agent.model)).lower()
+    assert "gemini-3.8-flash" in getattr(vendor_agent.model, "model", str(vendor_agent.model)).lower()
     assert vendor_agent.output_key == "vendor_findings"
     assert vendor_agent.output_schema == VendorFindings
     vendor_tool_names = [t.__name__ for t in vendor_agent.tools]
@@ -417,7 +424,7 @@ def test_specialists_configuration_and_least_privilege():
 
     # 3. ratio_agent
     assert ratio_agent.name == "ratio_agent"
-    assert "gemini-3.1-flash-lite" in getattr(ratio_agent.model, "model", str(ratio_agent.model)).lower()
+    assert "gemini-3.8-flash" in getattr(ratio_agent.model, "model", str(ratio_agent.model)).lower()
     assert ratio_agent.output_key == "ratio_findings"
     assert ratio_agent.output_schema == RatioFindings
     ratio_tool_names = [t.__name__ for t in ratio_agent.tools]
@@ -426,7 +433,7 @@ def test_specialists_configuration_and_least_privilege():
 
     # 4. policy_agent
     assert policy_agent.name == "policy_agent"
-    assert "gemini-3.1-flash-lite" in getattr(policy_agent.model, "model", str(policy_agent.model)).lower()
+    assert "gemini-3.8-flash" in getattr(policy_agent.model, "model", str(policy_agent.model)).lower()
     assert policy_agent.output_key == "policy_findings"
     assert policy_agent.output_schema == PolicyFindings
     policy_tool_names = [t.__name__ for t in policy_agent.tools]
@@ -545,12 +552,7 @@ def test_specialists_parallel_execution_and_session_state():
         assert rfnd["highest_risk_score"] == 25
         assert all(f["score"] == f["likelihood"] * f["impact"] for f in rfnd["findings"])
 
-    try:
-        asyncio.run(_run())
-    finally:
-        memo_path = Path("docs/audit_memo.md")
-        if memo_path.exists():
-            memo_path.unlink()
+    asyncio.run(_run())
 
 
 def test_prompt_injection_descriptions_do_not_alter_behavior():
@@ -592,12 +594,7 @@ def test_prompt_injection_descriptions_do_not_alter_behavior():
         assert updated.state["anomaly_findings"]["duplicate_count"] == 10
         assert updated.state["vendor_findings"]["ghost_vendor_count"] == 5
 
-    try:
-        asyncio.run(_run())
-    finally:
-        memo_path = Path("docs/audit_memo.md")
-        if memo_path.exists():
-            memo_path.unlink()
+    asyncio.run(_run())
 
 
 def test_pipeline_guard_halts_specialists_on_failed_intake():
@@ -661,12 +658,7 @@ def test_pipeline_guard_halts_specialists_on_failed_intake():
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-    try:
-        asyncio.run(_run())
-    finally:
-        memo_path = Path("docs/audit_memo.md")
-        if memo_path.exists():
-            memo_path.unlink()
+    asyncio.run(_run())
 
 
 @pytest.mark.live
@@ -697,9 +689,4 @@ def test_specialists_live_gemini():
         assert "data_profile" in updated.state
         assert "anomaly_findings" in updated.state
 
-    try:
-        asyncio.run(_run())
-    finally:
-        memo_path = Path("docs/audit_memo.md")
-        if memo_path.exists():
-            memo_path.unlink()
+    asyncio.run(_run())

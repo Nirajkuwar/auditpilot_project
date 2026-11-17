@@ -304,7 +304,7 @@ async def mock_dynamic_generate(self, llm_request, stream=False):
 def test_intake_agent_configuration():
     """Verify intake_agent properties, model, tools, and output configuration."""
     assert intake_agent.name == "intake_agent"
-    assert "gemini-3.1-flash-lite" in getattr(intake_agent.model, "model", str(intake_agent.model))
+    assert "gemini-3.8-flash" in getattr(intake_agent.model, "model", str(intake_agent.model))
     assert intake_agent.output_key == "data_profile"
     assert intake_agent.output_schema == DataProfile
 

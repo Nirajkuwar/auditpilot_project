@@ -143,7 +143,7 @@ def test_sign_off_memo_missing_file():
 def test_report_agent_configuration_and_least_privilege():
     """Verify report_agent attributes, model, tool sandboxing, and callbacks."""
     assert report_agent.name == "report_agent"
-    assert "gemini-3.1-flash-lite" in getattr(report_agent.model, "model", str(report_agent.model))
+    assert "gemini-3.8-flash" in getattr(report_agent.model, "model", str(report_agent.model))
     assert report_agent.output_key == "audit_memo_output"
     assert report_agent.before_agent_callback == report_pipeline_guard
     assert report_agent.after_agent_callback == sync_report_state

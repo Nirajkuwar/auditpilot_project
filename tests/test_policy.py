@@ -137,7 +137,7 @@ def test_retrieve_policy_edge_cases_and_modularity():
 def test_policy_agent_configuration_and_least_privilege():
     """Verify policy_agent has only designated tools, proper schemas, and model settings."""
     assert policy_agent.name == "policy_agent"
-    assert "gemini-3.1-flash-lite" in getattr(policy_agent.model, "model", str(policy_agent.model)).lower()
+    assert "gemini-3.8-flash" in getattr(policy_agent.model, "model", str(policy_agent.model)).lower()
     assert policy_agent.output_key == "policy_findings"
     assert policy_agent.output_schema == PolicyFindings
 
