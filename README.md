@@ -88,12 +88,29 @@ flowchart TD
     Security -.-> Pipeline
 ```
 
-### Live Google ADK Multi-Agent Topology
+### Live Google ADK Multi-Agent Execution & Traces
 
-The live execution DAG rendered in the **Google ADK Developer UI (`adk web`)** illustrates the root `audit_lead` orchestrating sequential and parallel sub-agents, deterministic audit tools wired to each specialist, the adversarial `skeptic_loop`, and the human-in-the-loop sign-off gate:
+The screenshots below demonstrate the end-to-end execution of AuditPilot in the **Google ADK Developer UI (`adk web`)**:
+
+#### 1. Multi-Agent Topology & Tool Wiring
+The live execution DAG illustrates the root `audit_lead` orchestrating sequential and parallel sub-agents, deterministic audit tools wired to each specialist, the adversarial `skeptic_loop`, and the human-in-the-loop sign-off gate:
 
 <p align="center">
   <img src="docs/images/adk_agent_graph.png" alt="AuditPilot Google ADK Multi-Agent Hierarchy Graph" width="100%"/>
+</p>
+
+#### 2. Data Intake & Parallel Specialist Execution Trace
+Event execution trace showing `load_ledger` and `check_trial_balance` reconciling ₹17.11 Cr turnover and flagging the ₹1.25 Lakh gap on Account 6020 (`JE-2025-2767`), followed by parallel dispatch of `check_approval_limits`, `find_split_payments`, `retrieve_policy` (SOP RAG), and `vendor_bank_overlap`:
+
+<p align="center">
+  <img src="docs/images/adk_intake_trace.jpg" alt="ADK Live Intake and Specialists Execution Trace" width="100%"/>
+</p>
+
+#### 3. Skeptic Review & Partner Sign-Off Finalization
+The adversarial skeptic review preserves substantiated findings while archiving dropped claims into `reviewed_findings`. Following partner review, typing `APPROVE` triggers `sign_off_memo`, successfully finalizing `docs/audit_memo.md` to `Status: FINAL`:
+
+<p align="center">
+  <img src="docs/images/adk_signoff_trace.jpg" alt="ADK Partner Sign-Off Gate and Memo Finalization" width="100%"/>
 </p>
 
 ---
@@ -238,7 +255,9 @@ AuditPilot/
 ├── docs/
 │   ├── audit_memo.md               # Final signed-off Audit Memorandum
 │   └── images/
-│       └── adk_agent_graph.png     # Live Google ADK Agent DAG hierarchy screenshot
+│       ├── adk_agent_graph.png     # Live Google ADK Agent DAG hierarchy screenshot
+│       ├── adk_intake_trace.jpg    # ADK live intake & specialist execution trace
+│       └── adk_signoff_trace.jpg   # ADK partner sign-off & finalization trace
 ├── evals/
 │   ├── run_eval.py                 # 3-run evaluation runner against ground truth
 │   └── results.md                  # Comprehensive benchmark report
