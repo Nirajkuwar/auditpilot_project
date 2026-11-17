@@ -9,9 +9,25 @@ from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
 from auditpilot.agents.report import report_agent
 from auditpilot.agents.risk import risk_agent
-from auditpilot.agents.skeptic import skeptic_loop
+from auditpilot.agents.skeptic import skeptic_agent, skeptic_loop
 from auditpilot.agents.vendor import vendor_agent
-from auditpilot.callbacks import pipeline_guard
+from auditpilot.callbacks import after_tool_audit_logger, before_model_guardrail, pipeline_guard
+
+# Attach security guardrails (bank account masking) and provenance audit logging callbacks
+ALL_AUDIT_LLM_AGENTS = [
+    intake_agent,
+    anomaly_agent,
+    vendor_agent,
+    ratio_agent,
+    policy_agent,
+    risk_agent,
+    skeptic_agent,
+    report_agent,
+]
+
+for agent in ALL_AUDIT_LLM_AGENTS:
+    agent.before_model_callback = before_model_guardrail
+    agent.after_tool_callback = after_tool_audit_logger
 
 # Parallel specialist group analyzing anomalies, vendor integrity, ratios, and policy compliance concurrently
 specialists = ParallelAgent(
