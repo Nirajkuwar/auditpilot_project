@@ -1,6 +1,6 @@
 # AuditPilot Evaluation & Benchmark Report
 
-**Generated:** 2026-11-17 07:11:54 UTC  
+**Generated:** 2026-11-17 07:14:21 UTC  
 **Evaluation Mode:** `OFFLINE`  
 **Consecutive Runs:** `3`  
 **Ground Truth Reference:** `data/ground_truth.csv` (Isolated from agents)  
@@ -15,7 +15,7 @@ AuditPilot was evaluated against the seeded ground truth anomaly dataset (`data/
 - **Overall Precision:** `100.00%` (Zero false positives across deterministic tools).
 - **Cross-Run Stability:** `σ = 0.0000` (100% deterministic reproducibility across runs).
 - **Adversarial Prompt-Injection Defense:** `100.0%` (4/4 malicious payloads neutralized).
-- **Audit Memo Numerical Grounding:** `87.5%` (7/8 figures verified against ledger ground truth).
+- **Audit Memo Numerical Grounding:** `100.0%` (8/8 figures verified against ledger ground truth).
 
 ---
 

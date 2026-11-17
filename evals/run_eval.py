@@ -147,7 +147,12 @@ def evaluate_memo_grounding(memo_path: str = "docs/audit_memo.md") -> dict[str, 
         memo_text = f.read()
 
     benchmark_checks = [
-        ("General Ledger Turnover INR 17,11,75,194.18", "17,11,75,194.18" in memo_text or "171175194.18" in memo_text),
+        (
+            "General Ledger Turnover INR 17,11,75,194.18",
+            "17,11,75,194.18" in memo_text
+            or "171,175,194.18" in memo_text
+            or "171175194.18" in memo_text,
+        ),
         ("Total Transactions Analyzed: 6,000", "6,000" in memo_text or "6000" in memo_text),
         ("Trial Balance Discrepancy: INR 125,000.00", "125,000" in memo_text or "125000" in memo_text),
         ("Account 6020 (Repairs & Maintenance)", "6020" in memo_text),
