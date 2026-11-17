@@ -7,6 +7,7 @@ from auditpilot.agents.anomaly import anomaly_agent
 from auditpilot.agents.intake import intake_agent
 from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
+from auditpilot.agents.report import report_agent
 from auditpilot.agents.risk import risk_agent
 from auditpilot.agents.skeptic import skeptic_loop
 from auditpilot.agents.vendor import vendor_agent
@@ -25,10 +26,11 @@ specialists = ParallelAgent(
 # 2. specialists (executes anomaly_agent, vendor_agent, ratio_agent, and policy_agent in parallel)
 # 3. risk_agent (deduplicates, deterministically scores, and ranks all audit findings)
 # 4. skeptic_loop (adversarial verification loop validating existence, corroborating evidence, filtering false positives)
+# 5. report_agent (synthesizes audit memorandum in docs/audit_memo.md and manages partner sign-off)
 audit_lead = SequentialAgent(
     name="audit_lead",
     description="Lead Audit Pipeline Agent for Sahyadri Precision Components Pvt. Ltd.",
-    sub_agents=[intake_agent, specialists, risk_agent, skeptic_loop],
+    sub_agents=[intake_agent, specialists, risk_agent, skeptic_loop, report_agent],
 )
 
 # Root agent entry point for ADK Web UI and CLI runners

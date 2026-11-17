@@ -270,16 +270,18 @@ def test_risk_agent_configuration_and_least_privilege():
 
 
 def test_audit_lead_composition_and_order():
-    """Verify that audit_lead sequentially executes intake_agent -> specialists -> risk_agent -> skeptic_loop."""
+    """Verify that audit_lead sequentially executes intake_agent -> specialists -> risk_agent -> skeptic_loop -> report_agent."""
     from auditpilot.agents.intake import intake_agent
+    from auditpilot.agents.report import report_agent
     from auditpilot.agents.skeptic import skeptic_loop
 
     assert audit_lead.name == "audit_lead"
-    assert len(audit_lead.sub_agents) == 4
+    assert len(audit_lead.sub_agents) == 5
     assert audit_lead.sub_agents[0] == intake_agent
     assert audit_lead.sub_agents[1] == specialists
     assert audit_lead.sub_agents[2] == risk_agent
     assert audit_lead.sub_agents[3] == skeptic_loop
+    assert audit_lead.sub_agents[4] == report_agent
 
 
 # ==============================================================================

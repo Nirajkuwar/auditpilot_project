@@ -12,6 +12,8 @@ def pipeline_guard(callback_context: CallbackContext) -> types.Content | None:
     Inspects session state for 'data_profile'. If data intake failed (e.g. missing
     files, unreadable CSVs, or missing required columns), short-circuits downstream
     agent execution and returns an informative diagnostic message.
+    Also short-circuits if the session is in partner sign-off mode so that
+    earlier agents bypass re-execution cleanly.
 
     Args:
         callback_context: The invocation context containing session state.
@@ -20,7 +22,16 @@ def pipeline_guard(callback_context: CallbackContext) -> types.Content | None:
         types.Content containing the halt diagnostic if data intake failed,
         or None to permit downstream agent execution.
     """
-    data_profile = callback_context.state.get("data_profile")
+    state = callback_context.state
+
+    # Partner sign-off bypass: skip specialists if memo is already drafted
+    if state.get("audit_memo_status") in ("DRAFT", "FINAL"):
+        return types.Content(
+            role="model",
+            parts=[types.Part.from_text(text="AUDIT PIPELINE ROUTED: Memo already drafted. Routing to partner sign-off.")],
+        )
+
+    data_profile = state.get("data_profile")
     if not data_profile:
         return None
 

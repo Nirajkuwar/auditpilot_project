@@ -18,8 +18,25 @@ DEFAULT_MODEL = get_gemini_model()
 
 
 def risk_pipeline_guard(callback_context: CallbackContext) -> types.Content | None:
-    """Pre-execution guard for risk_agent: halts cleanly if data intake failed."""
-    data_profile = callback_context.state.get("data_profile")
+    """Pre-execution guard for risk_agent: halts cleanly if data intake failed or if in sign-off mode."""
+    state = callback_context.state
+
+    # Partner sign-off bypass: preserve existing findings
+    if state.get("audit_memo_status") in ("DRAFT", "FINAL"):
+        rf = state.get("ranked_findings", {})
+        preserve_output = {
+            "findings": rf.get("findings", []),
+            "total_findings": rf.get("total_findings", 0),
+            "total_exposure_inr": rf.get("total_exposure_inr", 0.0),
+            "highest_risk_score": rf.get("highest_risk_score", 0),
+            "notes": "Preserving existing ranked findings for partner sign-off.",
+        }
+        return types.Content(
+            role="model",
+            parts=[types.Part.from_text(text=json.dumps(preserve_output))],
+        )
+
+    data_profile = state.get("data_profile")
     if not data_profile:
         return None
 

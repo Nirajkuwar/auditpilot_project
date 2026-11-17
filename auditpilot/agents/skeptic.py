@@ -20,8 +20,29 @@ DEFAULT_MODEL = get_gemini_model()
 
 
 def skeptic_pipeline_guard(callback_context: CallbackContext) -> types.Content | None:
-    """Pre-execution guard for skeptic_agent: halts cleanly if data intake failed."""
-    data_profile = callback_context.state.get("data_profile")
+    """Pre-execution guard for skeptic_agent: halts cleanly if data intake failed or in sign-off mode."""
+    state = callback_context.state
+
+    # Partner sign-off bypass: preserve existing reviewed findings and exit loop
+    if state.get("audit_memo_status") in ("DRAFT", "FINAL"):
+        rf = state.get("reviewed_findings", {})
+        preserve_output = {
+            "findings": rf.get("findings", []),
+            "confirmed_findings": rf.get("confirmed_findings", []),
+            "dropped_findings": rf.get("dropped_findings", []),
+            "needs_evidence_count": 0,
+            "total_reviewed": rf.get("total_reviewed", 0),
+            "notes": "Preserving existing reviewed findings for partner sign-off.",
+        }
+        if hasattr(callback_context, "actions") and callback_context.actions:
+            callback_context.actions.escalate = True
+            callback_context.actions.skip_summarization = True
+        return types.Content(
+            role="model",
+            parts=[types.Part.from_text(text=json.dumps(preserve_output))],
+        )
+
+    data_profile = state.get("data_profile")
     if not data_profile:
         return None
 

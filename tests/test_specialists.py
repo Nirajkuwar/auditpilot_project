@@ -42,6 +42,7 @@ from auditpilot.agents.anomaly import anomaly_agent
 from auditpilot.agents.intake import intake_agent
 from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
+from auditpilot.agents.report import report_agent
 from auditpilot.agents.risk import risk_agent
 from auditpilot.agents.skeptic import skeptic_loop
 from auditpilot.agents.vendor import vendor_agent
@@ -113,6 +114,10 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
                 arg = {"entry_ids": ["JE-2025-0855", "JE-2025-0945", "JE-2025-0455"]}
             elif t_name == "exit_review":
                 arg = {"reason": "All findings confirmed."}
+            elif t_name == "write_audit_memo":
+                arg = {"markdown_content": "# AUDIT MEMORANDUM\nStatus: DRAFT", "status": "DRAFT"}
+            elif t_name == "sign_off_memo":
+                arg = {"decision": "APPROVE"}
             elif t_name == "score_and_rank_findings":
                 arg = {
                     "findings": [
@@ -337,6 +342,9 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             }
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(out))]))
 
+        elif "write_audit_memo" in available_tools:
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text="Audit Memorandum drafted successfully.")]))
+
         elif "verify_entry_ids" in available_tools or "exit_review" in available_tools:
             out = {
                 "findings": [
@@ -377,6 +385,9 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
                 "notes": "Skeptic verification confirmed all substantiated findings.",
             }
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(out))]))
+
+        elif "write_audit_memo" in available_tools:
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text="Audit Memorandum drafted successfully.")]))
 
 
 def test_specialists_configuration_and_least_privilege():
@@ -451,11 +462,12 @@ def test_pipeline_hierarchy_and_guard_attachment():
 
     assert isinstance(audit_lead, SequentialAgent)
     assert audit_lead.name == "audit_lead"
-    assert len(audit_lead.sub_agents) == 4
+    assert len(audit_lead.sub_agents) == 5
     assert audit_lead.sub_agents[0] is intake_agent
     assert audit_lead.sub_agents[1] is specialists
     assert audit_lead.sub_agents[2] is risk_agent
     assert audit_lead.sub_agents[3] is skeptic_loop
+    assert audit_lead.sub_agents[4] is report_agent
     assert root_agent is audit_lead
 
 
@@ -533,7 +545,12 @@ def test_specialists_parallel_execution_and_session_state():
         assert rfnd["highest_risk_score"] == 25
         assert all(f["score"] == f["likelihood"] * f["impact"] for f in rfnd["findings"])
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    finally:
+        memo_path = Path("docs/audit_memo.md")
+        if memo_path.exists():
+            memo_path.unlink()
 
 
 def test_prompt_injection_descriptions_do_not_alter_behavior():
@@ -575,7 +592,12 @@ def test_prompt_injection_descriptions_do_not_alter_behavior():
         assert updated.state["anomaly_findings"]["duplicate_count"] == 10
         assert updated.state["vendor_findings"]["ghost_vendor_count"] == 5
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    finally:
+        memo_path = Path("docs/audit_memo.md")
+        if memo_path.exists():
+            memo_path.unlink()
 
 
 def test_pipeline_guard_halts_specialists_on_failed_intake():
@@ -639,7 +661,12 @@ def test_pipeline_guard_halts_specialists_on_failed_intake():
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    finally:
+        memo_path = Path("docs/audit_memo.md")
+        if memo_path.exists():
+            memo_path.unlink()
 
 
 @pytest.mark.live
@@ -670,4 +697,9 @@ def test_specialists_live_gemini():
         assert "data_profile" in updated.state
         assert "anomaly_findings" in updated.state
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    finally:
+        memo_path = Path("docs/audit_memo.md")
+        if memo_path.exists():
+            memo_path.unlink()

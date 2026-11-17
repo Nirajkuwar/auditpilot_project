@@ -3,7 +3,10 @@ Intake Agent for AuditPilot: verifies schemas, balances, and reconciles trial ba
 """
 
 import os
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents.llm_agent import LlmAgent
+from google.genai import types
+import json
 from auditpilot.models import get_gemini_model
 from auditpilot.schemas import DataProfile
 from auditpilot.tools import check_trial_balance, load_ledger
@@ -39,6 +42,18 @@ MANDATORY AUDIT PROTOCOLS:
    - Populate all fields of the response schema accurately based on the tool outputs, including `row_count`, `column_count`, `total_debit_inr`, `total_credit_inr`, `is_balanced`, `start_date`, `end_date`, `trial_balance_reconciled`, `trial_balance_gap_inr`, and `flagged_ids`.
 """
 
+def intake_pipeline_guard(callback_context: CallbackContext) -> types.Content | None:
+    """Pre-execution guard for intake_agent: preserves existing data_profile if in sign-off mode."""
+    state = callback_context.state
+    if state.get("audit_memo_status") in ("DRAFT", "FINAL"):
+        dp = state.get("data_profile", {})
+        return types.Content(
+            role="model",
+            parts=[types.Part.from_text(text=json.dumps(dp))],
+        )
+    return None
+
+
 intake_agent = LlmAgent(
     name="intake_agent",
     description="Validates accounting dataset structure, verifies double-entry balance, and reconciles trial balance.",
@@ -47,5 +62,6 @@ intake_agent = LlmAgent(
     tools=[load_ledger, check_trial_balance],
     output_schema=DataProfile,
     output_key="data_profile",
+    before_agent_callback=intake_pipeline_guard,
 )
 

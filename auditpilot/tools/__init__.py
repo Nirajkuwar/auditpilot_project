@@ -11,6 +11,7 @@ from auditpilot.tools.pattern_tools import (
     find_weekend_round,
 )
 from auditpilot.tools.policy_rag import retrieve_policy
+from auditpilot.tools.report_tools import sign_off_memo, write_audit_memo
 from auditpilot.tools.risk_tools import rank_findings, score_and_rank_findings
 from auditpilot.tools.skeptic_tools import exit_review, verify_entry_ids
 from auditpilot.tools.statistical_tools import benford_test
@@ -30,4 +31,6 @@ __all__ = [
     "rank_findings",
     "verify_entry_ids",
     "exit_review",
+    "write_audit_memo",
+    "sign_off_memo",
 ]

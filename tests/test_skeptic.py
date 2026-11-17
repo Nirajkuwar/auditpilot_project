@@ -23,6 +23,7 @@ from auditpilot.agents.skeptic import (
 )
 from auditpilot.agent import audit_lead, specialists
 from auditpilot.agents.intake import intake_agent
+from auditpilot.agents.report import report_agent
 from auditpilot.agents.risk import risk_agent
 from google.adk.agents import LoopAgent
 from google.adk.runners import Runner
@@ -153,13 +154,14 @@ def test_skeptic_loop_configuration():
 
 
 def test_audit_lead_hierarchy_and_composition():
-    """Verify that audit_lead sequentially executes intake_agent -> specialists -> risk_agent -> skeptic_loop."""
+    """Verify that audit_lead sequentially executes intake_agent -> specialists -> risk_agent -> skeptic_loop -> report_agent."""
     assert audit_lead.name == "audit_lead"
-    assert len(audit_lead.sub_agents) == 4
+    assert len(audit_lead.sub_agents) == 5
     assert audit_lead.sub_agents[0] is intake_agent
     assert audit_lead.sub_agents[1] is specialists
     assert audit_lead.sub_agents[2] is risk_agent
     assert audit_lead.sub_agents[3] is skeptic_loop
+    assert audit_lead.sub_agents[4] is report_agent
 
 
 # ==============================================================================

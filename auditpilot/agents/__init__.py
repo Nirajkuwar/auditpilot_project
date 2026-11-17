@@ -6,6 +6,7 @@ from auditpilot.agents.anomaly import anomaly_agent
 from auditpilot.agents.intake import intake_agent
 from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
+from auditpilot.agents.report import report_agent
 from auditpilot.agents.risk import risk_agent
 from auditpilot.agents.skeptic import skeptic_agent, skeptic_loop
 from auditpilot.agents.vendor import vendor_agent
@@ -19,4 +20,5 @@ __all__ = [
     "risk_agent",
     "skeptic_agent",
     "skeptic_loop",
+    "report_agent",
 ]
