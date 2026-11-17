@@ -43,6 +43,7 @@ from auditpilot.agents.intake import intake_agent
 from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
 from auditpilot.agents.risk import risk_agent
+from auditpilot.agents.skeptic import skeptic_loop
 from auditpilot.agents.vendor import vendor_agent
 from auditpilot.callbacks import pipeline_guard
 from auditpilot.schemas import (
@@ -108,6 +109,10 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
         for t_name in available_tools:
             if t_name == "retrieve_policy":
                 arg = {"query": "self approval segregation of duties maker checker"}
+            elif t_name == "verify_entry_ids":
+                arg = {"entry_ids": ["JE-2025-0855", "JE-2025-0945", "JE-2025-0455"]}
+            elif t_name == "exit_review":
+                arg = {"reason": "All findings confirmed."}
             elif t_name == "score_and_rank_findings":
                 arg = {
                     "findings": [
@@ -332,6 +337,47 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             }
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(out))]))
 
+        elif "verify_entry_ids" in available_tools or "exit_review" in available_tools:
+            out = {
+                "findings": [
+                    {
+                        "id": "FIND-001",
+                        "category": "VENDOR_INTEGRITY",
+                        "title": "Shared Employee-Vendor Bank Accounts",
+                        "entry_ids": ["JE-2025-0855", "JE-2025-1313"],
+                        "evidence": ["Clause 3.2 violation"],
+                        "amount_at_risk_inr": 1507000.0,
+                        "likelihood": 5,
+                        "impact": 5,
+                        "score": 25,
+                        "rationale": "High fraud exposure",
+                        "status": "confirmed",
+                        "review_note": "Confirmed: Factual ledger evidence substantiated.",
+                    }
+                ],
+                "confirmed_findings": [
+                    {
+                        "id": "FIND-001",
+                        "category": "VENDOR_INTEGRITY",
+                        "title": "Shared Employee-Vendor Bank Accounts",
+                        "entry_ids": ["JE-2025-0855", "JE-2025-1313"],
+                        "evidence": ["Clause 3.2 violation"],
+                        "amount_at_risk_inr": 1507000.0,
+                        "likelihood": 5,
+                        "impact": 5,
+                        "score": 25,
+                        "rationale": "High fraud exposure",
+                        "status": "confirmed",
+                        "review_note": "Confirmed: Factual ledger evidence substantiated.",
+                    }
+                ],
+                "dropped_findings": [],
+                "needs_evidence_count": 0,
+                "total_reviewed": 1,
+                "notes": "Skeptic verification confirmed all substantiated findings.",
+            }
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(out))]))
+
 
 def test_specialists_configuration_and_least_privilege():
     """Verify strict least privilege, model configuration, and output schemas for all specialists."""
@@ -405,10 +451,11 @@ def test_pipeline_hierarchy_and_guard_attachment():
 
     assert isinstance(audit_lead, SequentialAgent)
     assert audit_lead.name == "audit_lead"
-    assert len(audit_lead.sub_agents) == 3
+    assert len(audit_lead.sub_agents) == 4
     assert audit_lead.sub_agents[0] is intake_agent
     assert audit_lead.sub_agents[1] is specialists
     assert audit_lead.sub_agents[2] is risk_agent
+    assert audit_lead.sub_agents[3] is skeptic_loop
     assert root_agent is audit_lead
 
 
@@ -583,6 +630,10 @@ def test_pipeline_guard_halts_specialists_on_failed_intake():
             ranked = updated.state.get("ranked_findings", {})
             assert ranked.get("total_findings", 0) == 0
             assert ranked.get("findings", []) == []
+            # skeptic_loop halted cleanly with empty findings
+            reviewed = updated.state.get("reviewed_findings", {})
+            assert reviewed.get("total_reviewed", 0) == 0
+            assert reviewed.get("findings", []) == []
 
         finally:
             if os.path.exists(tmp_path):

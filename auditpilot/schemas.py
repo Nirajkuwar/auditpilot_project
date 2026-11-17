@@ -398,3 +398,32 @@ class RankedFindingsOutput(BaseModel):
     )
 
 
+class ReviewedFindingsOutput(BaseModel):
+    """Structured container of audit findings reviewed by skeptic_agent."""
+
+    findings: list[Finding] = Field(
+        default_factory=list,
+        description="All evaluated findings with updated review status ('confirmed', 'needs_evidence', or 'dropped') and review_note.",
+    )
+    confirmed_findings: list[Finding] = Field(
+        default_factory=list,
+        description="Findings verified as genuine risks requiring audit report escalation.",
+    )
+    dropped_findings: list[Finding] = Field(
+        default_factory=list,
+        description="Findings refuted, invalid, or with legitimate operational explanations (preserved for audit appendix).",
+    )
+    needs_evidence_count: int = Field(
+        default=0,
+        description="Count of findings still requiring additional evidence (triggers loop continuation if > 0).",
+    )
+    total_reviewed: int = Field(
+        default=0,
+        description="Total number of findings evaluated.",
+    )
+    notes: str = Field(
+        default="",
+        description="Executive summary of the skeptic challenge and verification outcome.",
+    )
+
+
