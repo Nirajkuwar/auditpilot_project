@@ -88,6 +88,14 @@ flowchart TD
     Security -.-> Pipeline
 ```
 
+### Live Google ADK Multi-Agent Topology
+
+The live execution DAG rendered in the **Google ADK Developer UI (`adk web`)** illustrates the root `audit_lead` orchestrating sequential and parallel sub-agents, deterministic audit tools wired to each specialist, the adversarial `skeptic_loop`, and the human-in-the-loop sign-off gate:
+
+<p align="center">
+  <img src="docs/images/adk_agent_graph.png" alt="AuditPilot Google ADK Multi-Agent Hierarchy Graph" width="100%"/>
+</p>
+
 ---
 
 ## Visual Pipeline Execution
@@ -228,7 +236,9 @@ AuditPilot/
 │   ├── policy.md                   # Corporate Standard Operating Procedures
 │   └── ground_truth.csv            # Isolated benchmark labels (tests/evals only)
 ├── docs/
-│   └── audit_memo.md               # Final signed-off Audit Memorandum
+│   ├── audit_memo.md               # Final signed-off Audit Memorandum
+│   └── images/
+│       └── adk_agent_graph.png     # Live Google ADK Agent DAG hierarchy screenshot
 ├── evals/
 │   ├── run_eval.py                 # 3-run evaluation runner against ground truth
 │   └── results.md                  # Comprehensive benchmark report
