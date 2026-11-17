@@ -11,6 +11,7 @@ from auditpilot.tools.pattern_tools import (
     find_weekend_round,
 )
 from auditpilot.tools.policy_rag import retrieve_policy
+from auditpilot.tools.risk_tools import rank_findings, score_and_rank_findings
 from auditpilot.tools.statistical_tools import benford_test
 
 __all__ = [
@@ -24,4 +25,6 @@ __all__ = [
     "vendor_bank_overlap",
     "ratio_table",
     "retrieve_policy",
+    "score_and_rank_findings",
+    "rank_findings",
 ]

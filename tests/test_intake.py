@@ -134,6 +134,18 @@ async def mock_dynamic_generate(self, llm_request, stream=False):
         for t_name in available_tools:
             if t_name == "retrieve_policy":
                 arg = {"query": "segregation of duties maker checker self approval"}
+            elif t_name == "score_and_rank_findings":
+                arg = {
+                    "findings": [
+                        {
+                            "category": "VENDOR_INTEGRITY",
+                            "title": "Vendor Conflict",
+                            "entry_ids": ["JE-2025-0855"],
+                            "likelihood": 5,
+                            "impact": 5,
+                        }
+                    ]
+                }
             elif t_name in (
                 "load_ledger",
                 "check_trial_balance",
@@ -222,6 +234,38 @@ async def mock_dynamic_generate(self, llm_request, stream=False):
                                 ],
                                 "flagged_ids": [],
                                 "notes": "Policy checked",
+                            })
+                        )
+                    ],
+                )
+            )
+        elif "score_and_rank_findings" in available_tools:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps({
+                                "findings": [
+                                    {
+                                        "id": "FIND-001",
+                                        "category": "VENDOR_INTEGRITY",
+                                        "title": "Vendor Conflict",
+                                        "entry_ids": ["JE-2025-0855"],
+                                        "evidence": ["Evidence 1"],
+                                        "amount_at_risk_inr": 150000.0,
+                                        "likelihood": 5,
+                                        "impact": 5,
+                                        "score": 25,
+                                        "rationale": "High risk",
+                                        "status": "pending_review",
+                                        "review_note": "",
+                                    }
+                                ],
+                                "total_findings": 1,
+                                "total_exposure_inr": 150000.0,
+                                "highest_risk_score": 25,
+                                "notes": "Ranked findings",
                             })
                         )
                     ],

@@ -7,6 +7,7 @@ from auditpilot.agents.anomaly import anomaly_agent
 from auditpilot.agents.intake import intake_agent
 from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
+from auditpilot.agents.risk import risk_agent
 from auditpilot.agents.vendor import vendor_agent
 from auditpilot.callbacks import pipeline_guard
 
@@ -21,10 +22,11 @@ specialists = ParallelAgent(
 # Lead audit pipeline orchestrating sequential multi-agent execution:
 # 1. intake_agent (validates dataset structure, halted by pipeline_guard if FAILED)
 # 2. specialists (executes anomaly_agent, vendor_agent, ratio_agent, and policy_agent in parallel)
+# 3. risk_agent (deduplicates, deterministically scores, and ranks all audit findings)
 audit_lead = SequentialAgent(
     name="audit_lead",
     description="Lead Audit Pipeline Agent for Sahyadri Precision Components Pvt. Ltd.",
-    sub_agents=[intake_agent, specialists],
+    sub_agents=[intake_agent, specialists, risk_agent],
 )
 
 # Root agent entry point for ADK Web UI and CLI runners

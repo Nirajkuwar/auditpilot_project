@@ -42,12 +42,14 @@ from auditpilot.agents.anomaly import anomaly_agent
 from auditpilot.agents.intake import intake_agent
 from auditpilot.agents.policy import policy_agent
 from auditpilot.agents.ratio import ratio_agent
+from auditpilot.agents.risk import risk_agent
 from auditpilot.agents.vendor import vendor_agent
 from auditpilot.callbacks import pipeline_guard
 from auditpilot.schemas import (
     AnomalyFindings,
     DataProfile,
     PolicyFindings,
+    RankedFindingsOutput,
     RatioFindings,
     VendorFindings,
 )
@@ -87,7 +89,7 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             if part.function_response:
                 tool_outputs[part.function_response.name] = part.function_response.response
 
-    available_tools = _get_tool_names(llm_request)
+    available_tools = [t for t in _get_tool_names(llm_request) if t != "set_model_response"]
 
     # Turn 1: Issue tool calls for all assigned tools
     if not tool_outputs:
@@ -106,6 +108,38 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
         for t_name in available_tools:
             if t_name == "retrieve_policy":
                 arg = {"query": "self approval segregation of duties maker checker"}
+            elif t_name == "score_and_rank_findings":
+                arg = {
+                    "findings": [
+                        {
+                            "category": "VENDOR_INTEGRITY",
+                            "title": "Shared Employee-Vendor Bank Accounts",
+                            "entry_ids": ["JE-2025-0855", "JE-2025-1313"],
+                            "evidence": ["Clause 3.2 violation: 3 shared accounts"],
+                            "likelihood": 5,
+                            "impact": 5,
+                            "rationale": "High fraud exposure",
+                        },
+                        {
+                            "category": "SEGREGATION_OF_DUTIES",
+                            "title": "Self-Approved Journal Vouchers",
+                            "entry_ids": ["JE-2025-0945", "JE-2025-0946"],
+                            "evidence": ["Clause 3.1 violation: maker equals checker"],
+                            "likelihood": 5,
+                            "impact": 5,
+                            "rationale": "Direct SoD override",
+                        },
+                        {
+                            "category": "SPLIT_PAYMENTS",
+                            "title": "Structured Split Payments Evasive of Authority Limits",
+                            "entry_ids": ["JE-2025-0455", "JE-2025-0457", "JE-2025-0485"],
+                            "evidence": ["Clause 4.2 violation: 6 groups within 48h"],
+                            "likelihood": 5,
+                            "impact": 4,
+                            "rationale": "Circumvention of Tier 1 limit",
+                        },
+                    ]
+                }
             elif t_name in (
                 "load_ledger",
                 "check_trial_balance",
@@ -286,6 +320,18 @@ async def mock_specialists_pipeline(self, llm_request, stream=False):
             }
             yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(findings))]))
 
+        elif "score_and_rank_findings" in available_tools:
+            rf_res = tool_outputs.get("score_and_rank_findings", {})
+            findings_list = rf_res.get("findings", [])
+            out = {
+                "findings": findings_list,
+                "total_findings": len(findings_list),
+                "total_exposure_inr": rf_res.get("total_exposure_inr", 0.0),
+                "highest_risk_score": rf_res.get("highest_risk_score", 0),
+                "notes": "Audit findings prioritized and ranked by risk score.",
+            }
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=json.dumps(out))]))
+
 
 def test_specialists_configuration_and_least_privilege():
     """Verify strict least privilege, model configuration, and output schemas for all specialists."""
@@ -359,9 +405,10 @@ def test_pipeline_hierarchy_and_guard_attachment():
 
     assert isinstance(audit_lead, SequentialAgent)
     assert audit_lead.name == "audit_lead"
-    assert len(audit_lead.sub_agents) == 2
+    assert len(audit_lead.sub_agents) == 3
     assert audit_lead.sub_agents[0] is intake_agent
     assert audit_lead.sub_agents[1] is specialists
+    assert audit_lead.sub_agents[2] is risk_agent
     assert root_agent is audit_lead
 
 
@@ -391,6 +438,7 @@ def test_specialists_parallel_execution_and_session_state():
         assert "vendor_findings" in state
         assert "ratio_findings" in state
         assert "policy_findings" in state
+        assert "ranked_findings" in state
 
         # Verify Data Profile
         dp = state["data_profile"]
@@ -430,6 +478,13 @@ def test_specialists_parallel_execution_and_session_state():
         assert len(pf["breaches"]) >= 2
         assert any(b["clause_id"] == "Clause 3.1" for b in pf["breaches"])
         assert any(b["clause_id"] == "Clause 4.2" for b in pf["breaches"])
+
+        # Verify Ranked Findings
+        rfnd = state["ranked_findings"]
+        assert len(rfnd["findings"]) >= 3
+        assert rfnd["findings"][0]["score"] >= rfnd["findings"][1]["score"]
+        assert rfnd["highest_risk_score"] == 25
+        assert all(f["score"] == f["likelihood"] * f["impact"] for f in rfnd["findings"])
 
     asyncio.run(_run())
 
@@ -524,6 +579,10 @@ def test_pipeline_guard_halts_specialists_on_failed_intake():
             assert "vendor_findings" not in updated.state
             assert "ratio_findings" not in updated.state
             assert "policy_findings" not in updated.state
+            # risk_agent halted cleanly with empty findings
+            ranked = updated.state.get("ranked_findings", {})
+            assert ranked.get("total_findings", 0) == 0
+            assert ranked.get("findings", []) == []
 
         finally:
             if os.path.exists(tmp_path):
