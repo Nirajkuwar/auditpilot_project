@@ -344,21 +344,6 @@ All data used in AuditPilot—including the general ledger (6,000 entries), tria
 
 ---
 
-## Roadmap: Part 2 — Enterprise AWS Cloud Deployment *(Upcoming Scope)*
-
-> **Note on Deployment:** Part 1 focuses on local agent architecture, deterministic tooling, skepticism loops, and offline evaluation. Part 2 cloud deployment is **future scope** and is not currently running.
-
-The upcoming Part 2 architecture will transition AuditPilot into a managed enterprise cloud service on Amazon Web Services (AWS):
-
-* **Containerization:** Package the ADK runtime into a lightweight, hardened Docker container and push to **Amazon Elastic Container Registry (ECR)**.
-* **Serverless Container Hosting:** Deploy on **AWS App Runner** or **AWS ECS Fargate** for zero-maintenance auto-scaling.
-* **Zero-Exposure Credential Management:** Store the Gemini API key in **AWS Secrets Manager**, mounted securely into container memory without environment file exposure.
-* **Cloud Data Storage:** Ingest client ledgers and persist finalized audit memorandums (`docs/audit_memo.md`) using encrypted **Amazon S3** buckets.
-* **Enterprise Observability:** Stream `audit_trail.jsonl` directly to **Amazon CloudWatch Logs** with real-time anomaly alerting.
-* **Web Sign-Off Portal:** A lightweight, secure web interface allowing Audit Partners to review findings, inspect evidence, and click `APPROVE` / `REQUEST CHANGES` / `REJECT`.
-
----
-
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
