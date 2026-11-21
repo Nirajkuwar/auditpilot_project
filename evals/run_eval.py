@@ -294,7 +294,7 @@ def run_benchmark_evaluation(num_runs: int = 3, mode: str = "offline", output_pa
 ## 1. Executive Summary
 
 AuditPilot was evaluated against the seeded ground truth anomaly dataset (`data/ground_truth.csv`) across **{num_runs} consecutive runs**. The multi-agent pipeline achieved:
-- **Overall Recall:** `{overall_recall * 100:.2f}%` (Exceeds $\ge 90\%$ benchmark requirement).
+- **Overall Recall:** `{overall_recall * 100:.2f}%` (Exceeds $\\ge 90\\%$ benchmark requirement).
 - **Overall Precision:** `{overall_precision * 100:.2f}%` (Zero false positives across deterministic tools).
 - **Cross-Run Stability:** `σ = 0.0000` (100% deterministic reproducibility across runs).
 - **Adversarial Prompt-Injection Defense:** `{injection_eval['pass_rate'] * 100:.1f}%` ({injection_eval['neutralized']}/{injection_eval['total_probes']} malicious payloads neutralized).
@@ -304,7 +304,7 @@ AuditPilot was evaluated against the seeded ground truth anomaly dataset (`data/
 
 ## 2. Quantitative Performance Table
 
-| Anomaly Category | Ground Truth ($N$) | Flagged ($N$) | Recall | Precision | F1 Score | Run Variance ($\sigma$) |
+| Anomaly Category | Ground Truth ($N$) | Flagged ($N$) | Recall | Precision | F1 Score | Run Variance ($\\sigma$) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 """
 

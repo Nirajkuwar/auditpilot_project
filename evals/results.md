@@ -1,6 +1,6 @@
 # AuditPilot Evaluation & Benchmark Report
 
-**Generated:** 2026-11-17 07:14:21 UTC  
+**Generated:** 2026-11-21 09:06:55 UTC  
 **Evaluation Mode:** `OFFLINE`  
 **Consecutive Runs:** `3`  
 **Ground Truth Reference:** `data/ground_truth.csv` (Isolated from agents)  
